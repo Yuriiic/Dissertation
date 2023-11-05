@@ -9,9 +9,9 @@ def plotLearning(x, scores, epsilons, filename, lines=None):
 
     ax.plot(x, epsilons, color="C0")
     ax.set_xlabel("Game", color="C0")
-    ax.set_ylabel("Epsilon", color="CO")
-    ax.tick_params(axis="x", color="CO")
-    ax.tick_params(axis="y", color="CO")
+    ax.set_ylabel("Epsilon", color="C0")
+    ax.tick_params(axis="x", color="C0")
+    ax.tick_params(axis="y", color="C0")
 
     N = len(scores)
     running_avg = np.empty(N)

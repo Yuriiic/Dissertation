@@ -9,11 +9,13 @@ import tensorflow.python.keras as keras
 from tensorflow.python.keras.optimizer_v2.adam import Adam
 from tensorflow.python.keras.models import load_model
 from utils import plotLearning
+from numba import jit, cuda
+import time
 
 
 # Keeps track of states, actions, rewards and samples them at random.
 class ReplayBuffer(object):
-    def __init__(self, max_size, input_size, n_actions):
+    def __init__(self, max_size, input_size):
         self.mem_size = max_size
         self.mem_counter = (
             0  # This counter is the running index of the last stored memory.
@@ -32,9 +34,9 @@ class ReplayBuffer(object):
         self.new_state_memory[index] = state_
         self.action_memory[index] = action
         self.reward_memory[index] = reward
-        self.terminal_memory[index] = (
-            done
-        )  # True evaluates to 1. So we do the opposite.
+        self.terminal_memory[
+            index
+        ] = done  # True evaluates to 1. So we do the opposite.
         self.mem_counter += 1
 
     def sample_buffer(self, batch_size):
@@ -54,13 +56,11 @@ class ReplayBuffer(object):
 
 
 class Data:
-    def __init__(self, timeframe, ticker):
+    def __init__(self, timeframe, ticker, train=True):
         self.timeframe = timeframe  # timeframe of the data you wish to view - 1min, 15min, 30min, etc
         self.ticker = ticker  # which data you want to use
         self.data = self.load_data()
-        self.preprocess_data(self.timeframe)
-        self.data_train = self.data.head(int(len(self.data)*(0.8)))
-        self.data_test = self.data[~self.data.isin(self.data_train)].dropna()
+        self.preprocess_data(self.timeframe, train)
         self.step = 0
         self.offset = 0
 
@@ -80,7 +80,7 @@ class Data:
         print(f"Finished Loading {self.ticker} Data")
         return df
 
-    def preprocess_data(self, timeframe):
+    def preprocess_data(self, timeframe, train):
         """
         The preprocess function right now just converts the data into the timeframe of interest.
         In the future, you can include technical analysis components such as MACD, RSI, etc.
@@ -117,30 +117,35 @@ class Data:
             + self.data["Period"].dt.hour * 10**2
             + self.data["Period"].dt.minute
         )
+        if train:
+            self.data = self.data.head(int(len(self.data) * (0.8)))
+        else:
+            self.data_train = self.data.head(int(len(self.data) * (0.8)))
+            self.data_test = self.data[~self.data.isin(self.data_train)].dropna()
+            self.data = self.data_test
 
-    def reset(self, data):
+    def reset(self):
         # NOTE: check the index that days aren't missing.
-        data.reset_index(drop=True, inplace=True)
+        self.data.reset_index(drop=True, inplace=True)
 
         # I am not sure what this is about
         # I think it's to randomly pluck samples out of the data. This specifically is to start at a random place
-        high = len(data.index)
+        high = len(self.data.index)
         self.offset = np.random.randint(low=0, high=high)
         self.step = 0
 
-    def take_step(self, data):
+    def take_step(self):
         """Returns data for current trading day and done signal"""
-        obs = data.iloc[self.offset + self.step]
+        obs = self.data.iloc[self.offset + self.step]
         self.step += 1
 
-        done = data.index[-1] == (self.offset + self.step)
+        done = self.data.index[-1] == (self.offset + self.step)
         return obs, done
 
 
 class TradeEnv(gym.Env):
-    def __init__(self, trading_cost):
-        self.data_source_train = Data(timeframe="1M", ticker="Oil")
-        self.data_source_test = Data(timeframe="1M", ticker="Oil")
+    def __init__(self, trading_cost, train=True):
+        self.data_source = Data(timeframe="1M", ticker="Oil", train=train)
         self.trading_cost = trading_cost
         self.action_space = spaces.Discrete(3)
 
@@ -236,7 +241,7 @@ class Agent:
         self.learn_step_counter = (
             0  # tells us that it's time to update the parameters for our update network
         )
-        self.memory = ReplayBuffer(mem_size, input_dims, n_actions)
+        self.memory = ReplayBuffer(mem_size, input_dims)
         self.q_eval = DuelingDeepQNetwork(fc1_dims, fc2_dims, n_actions)
         self.q_next = DuelingDeepQNetwork(fc1_dims, fc2_dims, n_actions)
 
@@ -261,6 +266,7 @@ class Agent:
 
         return action
 
+    # @jit(target_backend="cuda")
     def learn(self):
         if self.memory.mem_counter < self.batch_size:
             return
@@ -288,24 +294,23 @@ class Agent:
 
         self.learn_step_counter += 1
 
-    # def save_model(self):
-    #     self.q_eval.save(self.model_file)
-    #
-    # def load_model(self):
-    #     self.q_eval = load_model(self.model_file)
+    def save_model(self):
+        self.q_eval.save_weights(self.fname)
+        self.q_next.save_weights(self.fname)
+        # self.q_eval.save(self.fname)
+
+    def load_model(self):
+        self.q_eval.load_weights(self.fname)
+        self.q_next.load_weights(self.fname)
+        # self.q_eval = load_model(self.fname)
 
 
-if __name__ == "__main__":
-    env = TradeEnv(trading_cost=0)
-
-    n_games = 100
-    alpha = 0.1
-    gamma = 0.999
-    eps = 1.0
+def run(filename, train=True, n_games=1):
+    env = TradeEnv(trading_cost=0, train=train)
 
     agent = Agent(
-        gamma=gamma,
-        epsilon=eps,
+        gamma=0.999,
+        epsilon=1.0,
         learning_rate=1e-3,
         input_dims=[6],
         epsilon_dec=1e-3,
@@ -318,6 +323,17 @@ if __name__ == "__main__":
         n_actions=3,
     )
 
+    if not train:
+        n_steps = 0
+        while n_steps < agent.batch_size:
+            observation = env.reset()
+            action = env.action_space.sample()
+            observation_, reward, done, info = env.step(action, observation)
+            agent.store_transition(observation, action, reward, observation_, done)
+            n_steps += 1
+        agent.learn()
+        agent.load_model()
+
     scores, eps_history = [], []
 
     for i in range(n_games):
@@ -326,16 +342,16 @@ if __name__ == "__main__":
         observation = env.reset()
         while not done:
             action = agent.choose_action(observation)
-            # The observation would go in here. Based on the observation, take an action
             observation_, reward, done, info = env.step(action, observation)
             EpRewards += reward
             agent.store_transition(observation, action, reward, observation_, done)
             observation = observation_
-            agent.learn()
+            if train:
+                agent.learn()
         eps_history.append(agent.epsilon)
         scores.append(EpRewards)
 
-        avg_score = np.mean(scores[-100:])
+        avg_score = np.mean(scores)
         print(
             "episode: ",
             i,
@@ -344,8 +360,13 @@ if __name__ == "__main__":
             "epsilon %.2f" % agent.epsilon,
         )
 
-    filename = "FirstTry.png"
+    if train:
+        agent.save_model()
     x = [i + 1 for i in range(n_games)]
     plotLearning(x, scores, eps_history, filename)
 
-# implement rendering
+
+if __name__ == "__main__":
+    np.random.seed(42)
+    run("ThirdTry_100.png", True, n_games=100)
+    run("Test.png", False, n_games=100)
