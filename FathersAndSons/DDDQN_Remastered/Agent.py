@@ -1,5 +1,7 @@
+import keras.backend as K
 import numpy as np
 import tensorflow as tf
+import tensorflow.keras as keras
 from Memory import ReplayBuffer
 from Network import DuelingDeepQNetwork
 from tensorflow.python.keras.optimizer_v2.adam import Adam
@@ -16,8 +18,8 @@ class Agent:
         input_dims,
         epsilon_dec=1e-3,
         eps_end=0.01,
-        mem_size=1000,
-        fname="dueling_ddqn",
+        mem_size=1000000,
+        fname="C:\Research\Dissertation\FathersAndSons\Models",
         fc1_dims=128,
         fc2_dims=128,
         replace=100,
@@ -75,13 +77,16 @@ class Agent:
         )
 
         q_pred = self.q_eval(states)
-        q_next = tf.math.reduce_max(self.q_next(states_), axis=1, keepdims=True).numpy()
-        q_target = np.copy(q_pred)
+        q_next = self.q_next(states_)
+
+        q_target = q_pred.numpy()
+        max_actions = tf.math.argmax(self.q_eval(states_), axis=1)
 
         for idx, terminal in enumerate(dones):
-            if terminal:
-                q_next[idx] = 0.0
-            q_target[idx, int(actions[idx])] = rewards[idx] + self.gamma * q_next[idx]
+            q_target[idx, int(actions[idx])] = rewards[idx] + self.gamma * q_next[
+                idx, max_actions[idx]
+            ] * (1 - int(dones[idx]))
+
         self.q_eval.train_on_batch(states, q_target)
 
         self.epsilon = (
@@ -90,35 +95,12 @@ class Agent:
 
         self.learn_step_counter += 1
 
-    def save_models(self) -> None:
-        self.q_eval.save_weights(self.fname + "_q_eval_weights.h5")
-        q_eval_symbolic_weights = getattr(
-            self.q_eval.optimizer, "Models/dueling_ddqn_q_eval_weights"
-        )
-        q_eval_weight_values = K.batch_get_value(q_eval_symbolic_weights)
-        with open("Models/eval_optimizer.pkl", "wb") as f:
-            pickle.dump(q_eval_weight_values, f)
-
-        self.q_next.save_weights(self.fname + "_q_next_weights.h5")
-        q_next_symbolic_weights = getattr(
-            self.q_next.optimizer, "Models/dueling_ddqn_q_next_weights"
-        )
-        q_next_weight_values = K.batch_get_value(q_next_symbolic_weights)
-        with open("Models/next_optimizer.pkl", "wb") as f:
-            pickle.dump(q_next_weight_values, f)
-
+    def save_model(self) -> None:
+        self.q_eval.save(self.fname + r"\eval\q_eval")
+        self.q_next.save(self.fname + r"\next\q_next")
         print("... models saved successfully ...")
 
-    def load_models(self):
-        self.q_eval.load_weights(self.fname + "_q_eval_weights.h5")
-        self.q_eval._make_train_function()
-        with open("Models/eval_optimizer.pkl", "rb") as f:
-            eval_weight_values = pickle.load(f)
-        self.q_eval.optimizer.set_weights(eval_weight_values)
-
-        self.q_next.load_weights(self.fname + "_q_next_weights.h5")
-        self.q_next._make_train_function()
-        with open("Models/next_optimizer.pkl", "rb") as f:
-            next_weight_values = pickle.load(f)
-        self.q_next.optimizer.set_weights(next_weight_values)
+    def load_model(self) -> None:
+        self.q_eval = keras.models.load_model(self.fname + r"\eval\q_eval")
+        self.q_next = keras.models.load_model(self.fname + r"\next\q_next")
         print("... models loaded successfully ...")

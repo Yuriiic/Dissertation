@@ -1,5 +1,5 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 
 class Data:
@@ -56,7 +56,7 @@ class Data:
         self.data = self.data[self.data["Weekend"] == False]
         self.data = self.data.loc[:, self.data.columns != "Weekend"]
         self.data = self.data.dropna()
-        self.data.drop(['Period'], axis=1, inplace=True)
+        self.data.drop(["Period"], axis=1, inplace=True)
         if train:
             self.data = self.data.head(int(len(self.data) * (0.8)))
         else:

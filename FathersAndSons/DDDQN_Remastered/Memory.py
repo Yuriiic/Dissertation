@@ -1,5 +1,6 @@
 import numpy as np
 
+
 # Keeps track of states, actions, rewards and samples them at random.
 class ReplayBuffer(object):
     def __init__(self, max_size, input_size):

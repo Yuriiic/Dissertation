@@ -1,9 +1,8 @@
-from Data import Data
-import numpy as np
 import gymnasium as gym
-from gymnasium import spaces
+import numpy as np
+from Data import Data
 from Memory import ReplayBuffer
-
+from gymnasium import spaces
 
 
 class TradeEnv(gym.Env):

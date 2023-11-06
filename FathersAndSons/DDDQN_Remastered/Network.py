@@ -1,6 +1,7 @@
+import tensorflow as tf
 import tensorflow.python.keras as keras
 from tensorflow.python.keras.optimizer_v2.adam import Adam
-import tensorflow as tf
+
 
 class DuelingDeepQNetwork(keras.Model):
     def __init__(self, fc1_dims, fc2_dims, n_actions):
