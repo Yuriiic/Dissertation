@@ -15,7 +15,7 @@ def run(filename, train=True, n_games=1):
         epsilon=1.0,
         learning_rate=1e-3,
         input_dims=[5],
-        epsilon_dec=1e-3,
+        epsilon_dec=1e-5,
         mem_size=100000,
         batch_size=64,
         eps_end=0.01,
@@ -60,15 +60,15 @@ def run(filename, train=True, n_games=1):
         avg_score = np.mean(scores)
         print(
             "episode {} score {:.3f} avg score {:.3f} "
-            "best score {:.3f} epsilon {:.2f} steps {}".format(
-                i, score, avg_score, best_score, agent.epsilon, n_steps
+            "best score {:.3f} epsilon {:.2f}".format(
+                i, EpRewards, avg_score, best_score, agent.epsilon
             )
         )
 
-        if score > best_score:
+        if EpRewards > best_score:
             if train:
                 agent.save_model()
-            best_score = score
+            best_score = EpRewards
             print(f"The best score : {best_score}")
 
     x = [i + 1 for i in range(n_games)]
@@ -77,5 +77,5 @@ def run(filename, train=True, n_games=1):
 
 if __name__ == "__main__":
     np.random.seed(42)
-    run("ThirdTry_100.png", True, n_games=50)
-    # run("Test.png", False, n_games=1)
+    # run("ThirdTry_25.png", True, n_games=25)
+    run("Test.png", False, n_games=1)
