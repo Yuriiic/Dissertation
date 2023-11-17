@@ -15,7 +15,6 @@ def run(filename, train=True, n_games=1):
         epsilon=1.0,
         learning_rate=1e-3,
         input_dims=[5],
-        epsilon_dec=1e-5,
         mem_size=100000,
         batch_size=64,
         eps_end=0.01,
@@ -29,20 +28,10 @@ def run(filename, train=True, n_games=1):
         agent.load_model()
         agent.epsilon = agent.eps_end
 
-    # if not train:
-    #     n_steps = 0
-    #     while n_steps < agent.batch_size:
-    #         observation = env.reset()
-    #         action = env.action_space.sample()
-    #         observation_, reward, done, info = env.step(action, observation)
-    #         agent.store_transition(observation, action, reward, observation_, done)
-    #         n_steps += 1
-    #     agent.learn()
-    #     agent.load_model()
-
     scores, eps_history = [], []
 
     for i in tqdm(range(n_games)):
+        Start_Quantity = 1000000
         done = False
         EpRewards = 0
         observation = env.reset()
@@ -52,17 +41,18 @@ def run(filename, train=True, n_games=1):
             EpRewards += reward
             if train:
                 agent.store_transition(observation, action, reward, observation_, done)
-                agent.learn()
+                agent.learn(reward)
             observation = observation_
         eps_history.append(agent.epsilon)
         scores.append(EpRewards)
 
         avg_score = np.mean(scores)
+        uncertainty = np.std(scores)
         print(
-            "episode {} score {:.3f} avg score {:.3f} "
-            "best score {:.3f} epsilon {:.2f}".format(
-                i, EpRewards, avg_score, best_score, agent.epsilon
-            )
+            f"episode {i} score {EpRewards} avg score {avg_score} +/- {uncertainty}"
+            f"best score {best_score} epsilon {agent.epsilon}"
+            f"Started episode with {Start_Quantity}, finished episode with {Start_Quantity + EpRewards}"
+            f"Average Perspective: {Start_Quantity + avg_score} +/- {uncertainty}"
         )
 
         if EpRewards > best_score:
@@ -77,5 +67,5 @@ def run(filename, train=True, n_games=1):
 
 if __name__ == "__main__":
     np.random.seed(42)
-    # run("ThirdTry_25.png", True, n_games=25)
-    run("Test.png", False, n_games=1)
+    run("DynamicEpsilon.png", True, n_games=25)
+    # run("Test.png", False, n_games=1)

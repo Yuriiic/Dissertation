@@ -26,7 +26,7 @@ class TradeEnv(gym.Env):
 
         observation_, done = self.data_source.take_step()
 
-        reward = action * (observation_.Close - pos) / pos * 100
+        reward = action * (observation_.Close - pos)
 
         return observation_, reward, done, None
 

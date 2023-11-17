@@ -16,7 +16,6 @@ class Agent:
         epsilon,
         batch_size,
         input_dims,
-        epsilon_dec=1e-3,
         eps_end=0.01,
         mem_size=1000000,
         fname="C:\Research\Dissertation\FathersAndSons\Models",
@@ -32,7 +31,6 @@ class Agent:
         self.action_space = [i for i in range(n_actions)]
         self.gamma = gamma
         self.epsilon = epsilon
-        self.eps_dec = epsilon_dec
         self.eps_end = eps_end
         self.fname = fname
         self.replace = replace
@@ -60,12 +58,12 @@ class Agent:
             action = np.random.choice(self.action_space)
         else:
             state = np.array([observation])
-            actions = self.q_eval.advantage(state)
+            actions = self.q_eval.A(self.q_eval.dense2(self.q_eval.dense1(state)))
             action = tf.math.argmax(actions, axis=1).numpy()[0]
 
         return action
 
-    def learn(self):
+    def learn(self, eps_condition):
         if self.memory.mem_counter < self.batch_size:
             return
 
@@ -89,9 +87,9 @@ class Agent:
 
         self.q_eval.train_on_batch(states, q_target)
 
-        self.epsilon = (
-            self.epsilon - self.eps_dec if self.epsilon > self.eps_end else self.eps_end
-        )
+        # dynamic epsilon learning instead of static dec. e^-(x-x0) where x0 is the min win.
+        # I feel like epsilon jumps too much. At one point it was 1 then 0.9 and then back to 1.
+        self.epsilon_decrease(eps_condition)
 
         self.learn_step_counter += 1
 
@@ -104,3 +102,13 @@ class Agent:
         self.q_eval = keras.models.load_model(self.fname + r"\eval\q_eval")
         self.q_next = keras.models.load_model(self.fname + r"\next\q_next")
         print("... models loaded successfully ...")
+
+    def epsilon_decrease(self, condition):
+        interim_epsilon = np.exp(-(condition - 0.01))
+        if interim_epsilon > 1:
+            self.epsilon = 1
+        else:
+            self.epsilon = interim_epsilon
+        # self.epsilon = (
+        #     self.epsilon - self.eps_dec if self.epsilon > self.eps_end else self.eps_end
+        # )
