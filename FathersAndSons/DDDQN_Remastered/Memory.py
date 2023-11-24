@@ -24,7 +24,7 @@ class ReplayBuffer(object):
         self.reward_memory[index] = reward
         self.terminal_memory[
             index
-        ] = done  # True evaluates to 1. So we do the opposite.
+        ] = done
         self.mem_counter += 1
 
     def sample_buffer(self, batch_size):

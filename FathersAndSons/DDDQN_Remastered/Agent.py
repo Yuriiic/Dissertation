@@ -104,11 +104,13 @@ class Agent:
         print("... models loaded successfully ...")
 
     def epsilon_decrease(self, condition):
-        interim_epsilon = np.exp(-(condition - 0.01))
-        if interim_epsilon > 1:
+        interim_epsilon = np.exp(-(condition - 0.005))
+        # if interim_epsilon > 1:
+        #     self.epsilon = 1
+        # else:
+        #     self.epsilon = interim_epsilon
+        self.epsilon = abs(interim_epsilon) * self.epsilon
+        if self.epsilon > 1:
             self.epsilon = 1
-        else:
-            self.epsilon = interim_epsilon
-        # self.epsilon = (
-        #     self.epsilon - self.eps_dec if self.epsilon > self.eps_end else self.eps_end
-        # )
+
+        # Initialise several NNs with 0 epsilon and then run a series of them. Extract the buy and sell weights, average them and epsilon is the variance of your buy and sell.

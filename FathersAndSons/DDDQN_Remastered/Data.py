@@ -45,8 +45,24 @@ class Data:
             pass
         elif self.timeframe == "D":
             self.data = self.data.resample(timeframe)
-            agg_funcs = {"Open": "first", "High": "max", "Low": "min", "Close": "last"}
+            agg_funcs = {
+                "Open": "first",
+                "High": "max",
+                "Low": "min",
+                "Close": "last",
+                "Volume": "sum",
+            }
             self.data = self.data.agg(agg_funcs)
+        elif self.timeframe == "15M":
+            self.data = self.data.resample("15T").agg(
+                {
+                    "Open": "first",
+                    "High": "max",
+                    "Low": "min",
+                    "Close": "last",
+                    "Volume": "sum",
+                }
+            )
         else:
             raise ValueError("Currently Unsupported Timeframe")
 
@@ -70,14 +86,15 @@ class Data:
 
         # I am not sure what this is about
         # I think it's to randomly pluck samples out of the data. This specifically is to start at a random place
-        high = len(self.data.index)
+        high = len(self.data.index) - 1
         self.offset = np.random.randint(low=0, high=high)
         self.step = 0
 
     def take_step(self):
         """Returns data for current trading day and done signal"""
         obs = self.data.iloc[self.offset + self.step]
-        self.step += 1
 
         done = self.data.index[-1] == (self.offset + self.step)
+        if not done:
+            self.step += 1
         return obs, done

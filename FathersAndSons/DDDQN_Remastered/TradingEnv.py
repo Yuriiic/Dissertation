@@ -6,10 +6,10 @@ from gymnasium import spaces
 
 
 class TradeEnv(gym.Env):
-    def __init__(self, trading_cost, train=True):
-        self.data_source = Data(timeframe="1M", ticker="Oil", train=train)
+    def __init__(self, trading_cost, timeframe="1M", ticker="Oil", train=True):
+        self.data_source = Data(timeframe=timeframe, ticker=ticker, train=train)
         self.trading_cost = trading_cost
-        self.action_space = spaces.Discrete(3)
+        self.action_space = spaces.Discrete(2)
 
     def seed(self, seed=42):
         self.np_random, seed = seeding.np_random(seed)
@@ -20,7 +20,8 @@ class TradeEnv(gym.Env):
             action
         ), f"{action} {type(action)} is an invalid action"
 
-        action -= 1
+        if action == 0:
+            action = -1
 
         pos = observation.Close
 
