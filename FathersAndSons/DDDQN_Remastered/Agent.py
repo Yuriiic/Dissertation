@@ -16,7 +16,6 @@ class Agent:
         epsilon,
         batch_size,
         input_dims,
-        eps_end=0.01,
         mem_size=1000000,
         fname="C:\Research\Dissertation\FathersAndSons\Models",
         fc1_dims=128,
@@ -31,12 +30,11 @@ class Agent:
         self.action_space = [i for i in range(n_actions)]
         self.gamma = gamma
         self.epsilon = epsilon
-        self.eps_end = eps_end
         self.fname = fname
         self.replace = replace
         self.batch_size = batch_size
         self.learn_step_counter = (
-            0  # tells us that it's time to update the parameters for our update network
+            -1  # tells us that it's time to update the parameters for our update network
         )
         self.memory = ReplayBuffer(mem_size, input_dims)
         self.q_eval = DuelingDeepQNetwork(fc1_dims, fc2_dims, n_actions)
@@ -61,7 +59,7 @@ class Agent:
             actions = self.q_eval.A(self.q_eval.dense2(self.q_eval.dense1(state)))
             action = tf.math.argmax(actions, axis=1).numpy()[0]
 
-        return action
+        return action, actions
 
     def learn(self, eps_condition):
         if self.memory.mem_counter < self.batch_size:
@@ -89,7 +87,7 @@ class Agent:
 
         # dynamic epsilon learning instead of static dec. e^-(x-x0) where x0 is the min win.
         # I feel like epsilon jumps too much. At one point it was 1 then 0.9 and then back to 1.
-        self.epsilon_decrease(eps_condition)
+        # self.epsilon_decrease(eps_condition)
 
         self.learn_step_counter += 1
 
@@ -97,6 +95,11 @@ class Agent:
         self.q_eval.save(self.fname + r"\eval\q_eval")
         self.q_next.save(self.fname + r"\next\q_next")
         print("... models saved successfully ...")
+
+    def save_model_latest(self) -> None:
+        self.q_eval.save(self.fname + r"\latest_e\q_eval")
+        self.q_next.save(self.fname + r"\latest_n\q_next")
+        print("... saved latest models ...")
 
     def load_model(self) -> None:
         self.q_eval = keras.models.load_model(self.fname + r"\eval\q_eval")
