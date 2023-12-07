@@ -30,7 +30,7 @@ class ReplayBuffer(object):
     def sample_buffer(self, batch_size):
         max_mem = min(
             self.mem_counter, self.mem_size
-        )  # we want to know the position of the lasdt stored memory so that we only sample up to that position
+        )  # we want to know the position of the last stored memory so that we only sample up to that position
         batch = np.random.choice(max_mem, batch_size, replace=False)
         # will sample integers between max_mem --> batch_size. Replace=False means if you sample a memory then you can't sample it again
 

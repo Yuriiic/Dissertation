@@ -7,8 +7,8 @@ class DuelingDeepQNetwork(keras.Model):
     def __init__(self, fc1_dims, fc2_dims, n_actions):
         # fc1 and 2 are fully connected layers
         super(DuelingDeepQNetwork, self).__init__()
-        self.dense1 = keras.layers.Dense(fc1_dims, activation="relu")
-        self.dense2 = keras.layers.Dense(fc2_dims, activation="relu")
+        self.dense1 = keras.layers.LSTM(fc1_dims, activation="relu", return_sequences=True)
+        self.dense2 = keras.layers.LSTM(fc2_dims, activation="relu")
         self.V = keras.layers.Dense(1, activation=None)  # value of state
         self.A = keras.layers.Dense(
             n_actions, activation=None

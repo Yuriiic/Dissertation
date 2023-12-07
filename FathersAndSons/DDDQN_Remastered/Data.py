@@ -90,9 +90,9 @@ class Data:
         self.offset = np.random.randint(low=0, high=high)
         self.step = 0
 
-    def take_step(self):
+    def take_step(self, lookback):
         """Returns data for current trading day and done signal"""
-        obs = self.data.iloc[self.offset + self.step]
+        obs = self.data.loc[self.offset-lookback+self.step:self.offset+self.step]
 
         done = self.data.index[-1] == (self.offset + self.step)
         if not done:

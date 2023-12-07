@@ -15,7 +15,7 @@ class TradeEnv(gym.Env):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
-    def step(self, action, observation):
+    def step(self, action, observation, lookback):
         assert self.action_space.contains(
             action
         ), f"{action} {type(action)} is an invalid action"
@@ -25,17 +25,13 @@ class TradeEnv(gym.Env):
 
         pos = observation.Close
 
-        observation_, done = self.data_source.take_step()
+        observation_, done = self.data_source.take_step(lookback)
 
         reward = action * (observation_.Close - pos)
 
         return observation_, reward, done, None
 
-    def reset(self):
+    def reset(self, lookback):
         self.data_source.reset()
 
-        return self.data_source.take_step()[0]
-
-    def render(self):
-        """Will implement"""
-        pass
+        return self.data_source.take_step(lookback)[0]

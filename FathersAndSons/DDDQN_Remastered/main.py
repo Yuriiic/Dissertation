@@ -3,13 +3,16 @@ from Agent import Agent
 from TradingEnv import TradeEnv
 from tqdm import tqdm
 from utils import plotLearning
+import tensorflow as tf
 
 
-def run(filename, train=True, n_games=1):
-    env = TradeEnv(trading_cost=0, train=train, timeframe="1D")
+def run(filename, train=True, n_games=1, latest=True, lookback=0):
+    env = TradeEnv(trading_cost=0, train=train, timeframe="15M")
+
+    name = "1e4"
 
     best_score = -np.inf
-
+    tf.random.set_seed(42)
     # First Agent, 15/30 minutes
     agent = Agent(
         gamma=0.999,
@@ -23,6 +26,7 @@ def run(filename, train=True, n_games=1):
         fc2_dims=128,
         replace=100,
         n_actions=2,
+        eps_dec=1e-4,
     )
 
     # Second Agent, 1 hour
@@ -56,20 +60,23 @@ def run(filename, train=True, n_games=1):
     # )
 
     if not train:
-        agent.load_model()
+        if latest:
+            agent.load_model_latest(name)
+        else:
+            agent.load_model(name)
         agent.epsilon = agent.eps_end
 
     scores, eps_history = [], []
-
+    avg_scores, uncertainties = [], []
     for i in tqdm(range(n_games)):
         Start_Quantity = 1000000
         done = False
         EpRewards = 0
-        observation = env.reset()
+        observation = env.reset(lookback)
         all_EpRewards = []
         while not done:
             action = agent.choose_action(observation)
-            observation_, reward, done, info = env.step(action, observation)
+            observation_, reward, done, info = env.step(action, observation, lookback)
             EpRewards += reward
             all_EpRewards.append(reward)
             if train:
@@ -78,16 +85,15 @@ def run(filename, train=True, n_games=1):
             observation = observation_
         # normalised_rewards = normalise_rewards(all_EpRewards)
         # agent.epsilon_decrease(np.mean(normalised_rewards))
-        # if len(all_EpRewards) > 2:
-        #     if all_EpRewards[-1] < EpRewards:
-        #         # maybe multiply by how many rewards there are?
-        #         normalised_rewards = normalise_rewards(all_EpRewards)
-        #         agent.epsilon_decrease(np.mean(normalised_rewards))
         eps_history.append(agent.epsilon)
         scores.append(EpRewards)
 
         avg_score = np.mean(scores)
         uncertainty = np.std(scores)
+
+        avg_scores.append(avg_score)
+        uncertainties.append(uncertainty)
+
         print(
             f"episode {i} score {round(EpRewards, 2)} avg score {round(avg_score, 2)} +/- {round(uncertainty, 2)}; "
             f"best score {round(best_score, 2)} epsilon {round(agent.epsilon, 5)}; "
@@ -97,12 +103,16 @@ def run(filename, train=True, n_games=1):
 
         if EpRewards > best_score:
             if train:
-                agent.save_model()
+                agent.save_model(name)
             best_score = EpRewards
             print(f"The best score : {round(best_score, 2)}")
 
+        if train:
+            if i == (n_games - 1):
+                agent.save_model_latest(name)
+
     x = [i + 1 for i in range(n_games)]
-    plotLearning(x, scores, eps_history, filename)
+    plotLearning(x, scores, eps_history, filename, avg_scores, uncertainties)
 
 
 def normalise_rewards(rewards):
@@ -118,6 +128,11 @@ if __name__ == "__main__":
     # The agent does not have a hold option. The hold comes from the timeframe you select.
     # In the main paper, the agent observes N previous time steps as well as the current position of its higher timeframe.
     # For now the look back is 1.
+
+    print("This is a run for manual decay")
+
     np.random.seed(42)
-    run("500Games.png", True, n_games=100)
+    run("500ManualDecaynouncer1e4.png", True, n_games=100)
     # run("Test.png", False, n_games=1)
+
+

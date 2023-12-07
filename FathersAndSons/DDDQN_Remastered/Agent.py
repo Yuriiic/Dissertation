@@ -16,6 +16,7 @@ class Agent:
         epsilon,
         batch_size,
         input_dims,
+        eps_dec,
         eps_end=0.01,
         mem_size=1000000,
         fname="C:\Research\Dissertation\FathersAndSons\Models",
@@ -32,6 +33,7 @@ class Agent:
         self.gamma = gamma
         self.epsilon = epsilon
         self.eps_end = eps_end
+        self.eps_dec = eps_dec
         self.fname = fname
         self.replace = replace
         self.batch_size = batch_size
@@ -93,24 +95,32 @@ class Agent:
 
         self.learn_step_counter += 1
 
-    def save_model(self) -> None:
-        self.q_eval.save(self.fname + r"\eval\q_eval")
-        self.q_next.save(self.fname + r"\next\q_next")
-        print("... models saved successfully ...")
+    def save_model(self, name) -> None:
+        self.q_eval.save(self.fname + r"\eval\q_eval" + name)
+        self.q_next.save(self.fname + r"\next\q_next" + name)
+        print("___models saved successfully___")
 
-    def load_model(self) -> None:
-        self.q_eval = keras.models.load_model(self.fname + r"\eval\q_eval")
-        self.q_next = keras.models.load_model(self.fname + r"\next\q_next")
-        print("... models loaded successfully ...")
+    def save_model_latest(self, name) -> None:
+        self.q_eval.save(self.fname + r"\latest_e\q_eval" + name)
+        self.q_next.save(self.fname + r"\latest_n\q_next" + name)
+        print("___saved latest models___")
+
+    def load_model(self, name) -> None:
+        self.q_eval = keras.models.load_model(self.fname + r"\eval\q_eval" + name)
+        self.q_next = keras.models.load_model(self.fname + r"\next\q_next" + name)
+        print("___models loaded successfully___")
+
+    def load_model_latest(self, name) -> None:
+        self.q_eval = keras.models.load_model(self.fname + r"\latest_e\q_eval" + name)
+        self.q_next = keras.models.load_model(self.fname + r"\latest_n\q_next" + name)
+        print("___loaded latest models___")
 
     def epsilon_decrease(self, condition):
-        interim_epsilon = np.exp(-(condition - 0.005))
-        # if interim_epsilon > 1:
+        # interim_epsilon = np.exp(-(condition - 0.005))
+        # self.epsilon = abs(interim_epsilon) * self.epsilon
+        # if self.epsilon > 1:
         #     self.epsilon = 1
-        # else:
-        #     self.epsilon = interim_epsilon
-        self.epsilon = abs(interim_epsilon) * self.epsilon
-        if self.epsilon > 1:
-            self.epsilon = 1
+
+        self.epsilon = self.epsilon - self.eps_dec if self.epsilon > self.eps_end else self.eps_end
 
         # Initialise several NNs with 0 epsilon and then run a series of them. Extract the buy and sell weights, average them and epsilon is the variance of your buy and sell.
